@@ -1,0 +1,1 @@
+("8.6" ta6le ("3f467b27ee87c68a39a40fac9460a7b38abd49e9" . "8ec42dcff121b31e3628bebde023d9a1615cb1b9") (collects #"errortrace" #"errortrace-key.rkt") (collects #"r5rs" #"main.rkt") (collects #"racket" #"main.rkt") (collects #"racket" #"runtime-config.rkt"))
