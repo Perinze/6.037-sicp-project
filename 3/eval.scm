@@ -23,6 +23,7 @@
   (and (pair? exp) (eq? (car exp) tag)))
 
 (define (self-evaluating? exp)
+  (printf "~a is self-evaluating\n" exp)
   (cond ((number? exp) #t)
         ((string? exp) #t)
         ((boolean? exp) #t)
@@ -86,11 +87,13 @@
 ;; == QUESTION 2 ====
 (define (and? exp) (tagged-list? exp 'and))
 (define (eval-and exp env)
-  (let ((result (m-eval (first-exp exp) env)))
-    (cond ((null? exp) #t)
-          ((last-exp? exp) result)
-          ((result) (eval-and (rest-exps exp) env))
-          (else #f))))
+  (if (eq? (first-exp exp) 'and)
+      (eval-and (rest-exps exp) env)
+      (let ((result (m-eval (first-exp exp) env)))
+        (cond ((null? exp) #t)
+              ((last-exp? exp) result)
+              (result (eval-and (rest-exps exp) env))
+              (else #f)))))
 ;; == QUESTION 2 ====
 
 (define (application? exp) (pair? exp))
@@ -109,6 +112,7 @@
 ;;
 
 (define (m-eval exp env)
+  (displayln exp) ; debug
   (cond ((self-evaluating? exp) exp)
         ((variable? exp) (lookup-variable-value exp env))
         ((quoted? exp) (text-of-quotation exp))
