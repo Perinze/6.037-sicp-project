@@ -84,17 +84,9 @@
         (else (make-begin seq))))
 (define (make-begin exp) (cons 'begin exp))
 
-;; == QUESTION 2 ====
+;; ==== QUESTION 2 ====
 (define (and? exp) (tagged-list? exp 'and))
-(define (eval-and exp env)
-  (if (eq? (first-exp exp) 'and)
-      (eval-and (rest-exps exp) env)
-      (let ((result (m-eval (first-exp exp) env)))
-        (cond ((null? exp) #t)
-              ((last-exp? exp) result)
-              (result (eval-and (rest-exps exp) env))
-              (else #f)))))
-;; == QUESTION 2 ====
+;; ==== QUESTION 2 ====
 
 (define (application? exp) (pair? exp))
 (define (operator app) (car app))
@@ -126,7 +118,7 @@
         ((let? exp) (m-eval (let->application exp) env))
         ((time? exp) (time (m-eval (second exp) env)))
         ;; ==== QUESTION 2 ====
-        ((and? exp) (eval-and exp env))
+        ((and? exp) (eval-and (operands exp) env))
         ;; ==== QUESTION 2 ====
         ((application? exp)
          (m-apply (m-eval (operator exp) env)
@@ -170,6 +162,15 @@
                     (m-eval (definition-value exp) env)
                     env))
 
+;; ==== QUESTION 2 ====
+(define (eval-and exp env)
+  (let ((result (m-eval (first-exp exp) env)))
+    (cond ((null? exp) #t)
+          ((last-exp? exp) result)
+          (result (eval-and (rest-exps exp) env))
+          (else #f))))
+;; ==== QUESTION 2 ====
+
 (define (let->application expr)
   (let ((names (let-bound-variables expr))
         (values (let-values expr))
@@ -186,6 +187,15 @@
             (make-if (car (first-cond-clause clauses))
                      (sequence->exp (cdr (first-cond-clause clauses)))
                      (make-cond (rest-cond-clauses clauses)))))))
+
+;; ==== QUESTION 3 ====
+(define (until->transformed expr)
+  (let ()
+    (define (loop)
+      (if (until-test expr)
+          #t
+          (make-begin 
+;; ==== QUESTION 3 ====
 
 (define input-prompt ";;; M-Eval input level ")
 (define output-prompt ";;; M-Eval value:")
