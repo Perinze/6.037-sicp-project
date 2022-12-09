@@ -189,12 +189,22 @@
                      (make-cond (rest-cond-clauses clauses)))))))
 
 ;; ==== QUESTION 3 ====
+(define (until? expr) (eq? (car expr) 'begin))
+(define (until-test expr) (cadr expr))
+(define (until-exp expr) (cddr expr))
+(define (add-loop until-exp loop)
+  (cond ((null? until-exp) (cons loop null))
+        (else (cons (car until-exp)
+                    (add-loop (cdr until-exp) loop)))))
+(define (make-until-begin until-exp loop)
+  (cons 'begin (add-loop until-exp loop)))
 (define (until->transformed expr)
-  (let ()
-    (define (loop)
-      (if (until-test expr)
-          #t
-          (make-begin 
+  (make-let '()
+            (list (make-define '(loop)
+                               (make-if (until-test expr)
+                                        #t
+                                        (make-until-begin (until-exp expr) '(loop))))
+          '(loop))))
 ;; ==== QUESTION 3 ====
 
 (define input-prompt ";;; M-Eval input level ")
