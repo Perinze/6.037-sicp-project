@@ -23,7 +23,6 @@
   (and (pair? exp) (eq? (car exp) tag)))
 
 (define (self-evaluating? exp)
-  (printf "~a is self-evaluating\n" exp)
   (cond ((number? exp) #t)
         ((string? exp) #t)
         ((boolean? exp) #t)
@@ -104,7 +103,7 @@
 ;;
 
 (define (m-eval exp env)
-  (displayln exp) ; debug
+  ;(displayln exp) ; debug
   (cond ((self-evaluating? exp) exp)
         ((variable? exp) (lookup-variable-value exp env))
         ((quoted? exp) (text-of-quotation exp))
@@ -120,6 +119,11 @@
         ;; ==== QUESTION 2 ====
         ((and? exp) (eval-and (operands exp) env))
         ;; ==== QUESTION 2 ====
+        ;; ==== QUESTION 3 ====
+        ((until? exp)
+         ;(printf "m-eval:branch until: ~s~n" (until->transformed exp))
+         (m-eval (until->transformed exp) env))
+        ;; ==== QUESTION 3 ====
         ((application? exp)
          (m-apply (m-eval (operator exp) env)
                 (list-of-values (operands exp) env)))
@@ -189,7 +193,10 @@
                      (make-cond (rest-cond-clauses clauses)))))))
 
 ;; ==== QUESTION 3 ====
-(define (until? expr) (eq? (car expr) 'begin))
+(define (until? exp)
+  ;(printf "until?: (car expr) is ~s~n" (car exp))
+  ;(printf "until?: returning ~s~n" (tagged-list? exp 'until))
+  (tagged-list? exp 'until))
 (define (until-test expr) (cadr expr))
 (define (until-exp expr) (cddr expr))
 (define (add-loop until-exp loop)
@@ -204,7 +211,7 @@
                                (make-if (until-test expr)
                                         #t
                                         (make-until-begin (until-exp expr) '(loop))))
-          '(loop))))
+                  '(loop))))
 ;; ==== QUESTION 3 ====
 
 (define input-prompt ";;; M-Eval input level ")
@@ -247,8 +254,10 @@
 
 
 ; bindings
+;; ==== QUESTION 4 ====
 (define (make-binding var val)
-  (list 'binding var val))
+  (list 'binding var (list val)))
+;; ==== QUESTION 4 ====
 (define (binding? b)
   (tagged-list? b 'binding))
 (define (binding-variable binding)
@@ -257,12 +266,20 @@
       (error "Not a binding: " binding)))
 (define (binding-value binding)
   (if (binding? binding)
-      (third binding)
+      (first (third binding))
       (error "Not a binding: " binding)))
+;; ==== QUESTION 4 ====
 (define (set-binding-value! binding val)
   (if (binding? binding)
-      (set-car! (cddr binding) val)
+      (set-car! (cddr binding) (cons val (cddr binding))
       (error "Not a binding: " binding)))
+(define (unset-binding-value! binding)
+  (let (variables (cddr binding))
+    (if (binding? binding)
+        (if (not (null? (cdr variables)))
+          (set-car! (cddr binding) (cdr variables)))
+        (error "Not a binding: " binding))))
+;; ==== QUESTION 4 ====
 
 ; frames
 (define (make-frame variables values)
@@ -351,6 +368,14 @@
     (if binding
         (set-binding-value! binding val)
         (error "Unbound variable -- SET" var))))
+
+;; ==== QUESTION 4 ====
+(define (unset-variable-value! var env)
+  (let ((binding (find-in-environment var env)))
+    (if binding
+        (unset-binding-value! binding)
+        (error "Unbound variable -- UNSET" var))))
+;; ==== QUESTION 4 ====
 
 (define (define-variable! var val env)
   (let ((frame (environment-first-frame env)))
