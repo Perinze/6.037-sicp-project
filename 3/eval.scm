@@ -37,6 +37,12 @@
 (define (assignment-value exp) (caddr exp))
 (define (make-assignment var expr)
   (list 'set! var expr))
+;; ==== QUESTION 4 ====
+(define (undo? exp) (tagged-list? exp 'unset!))
+(define (undo-variable exp) (cadr exp))
+(define (make-undo var expr)
+  (list 'unset! var expr))
+;; ==== QUESTION 4 ====
 
 (define (definition? exp) (tagged-list? exp 'define))
 (define (definition-variable exp)
@@ -108,6 +114,9 @@
         ((variable? exp) (lookup-variable-value exp env))
         ((quoted? exp) (text-of-quotation exp))
         ((assignment? exp) (eval-assignment exp env))
+        ;; ==== QUESTION 4 ====
+        ((undo? exp) (eval-undo exp env))
+        ;; ==== QUESTION 4 ====
         ((definition? exp) (eval-definition exp env))
         ((if? exp) (eval-if exp env))
         ((lambda? exp)
@@ -160,6 +169,11 @@
   (set-variable-value! (assignment-variable exp)
                        (m-eval (assignment-value exp) env)
                        env))
+;; ==== QUESTION 4 ====
+(define (eval-undo exp env)
+  (unset-variable-value! (undo-variable exp)
+                         env))
+;; ==== QUESTION 4 ====
 
 (define (eval-definition exp env)
   (define-variable! (definition-variable exp)
@@ -264,21 +278,20 @@
   (if (binding? binding)
       (second binding)
       (error "Not a binding: " binding)))
+;; ==== QUESTION 4 ====
 (define (binding-value binding)
   (if (binding? binding)
       (first (third binding))
       (error "Not a binding: " binding)))
-;; ==== QUESTION 4 ====
 (define (set-binding-value! binding val)
   (if (binding? binding)
-      (set-car! (cddr binding) (cons val (cddr binding))
+      (set-car! (cddr binding) (cons val (caddr binding)))
       (error "Not a binding: " binding)))
 (define (unset-binding-value! binding)
-  (let (variables (cddr binding))
+  (let ((variables (caddr binding)))
     (if (binding? binding)
         (if (not (null? (cdr variables)))
-          (set-car! (cddr binding) (cdr variables)))
-        (error "Not a binding: " binding))))
+            (set-car! (cddr binding) (cdr variables))))))
 ;; ==== QUESTION 4 ====
 
 ; frames
