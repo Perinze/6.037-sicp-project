@@ -93,6 +93,21 @@
 (define (and? exp) (tagged-list? exp 'and))
 ;; ==== QUESTION 2 ====
 
+;; ==== QUESTION 3 ====
+(define (until? exp)
+  ;(printf "until?: (car expr) is ~s~n" (car exp))
+  ;(printf "until?: returning ~s~n" (tagged-list? exp 'until))
+  (tagged-list? exp 'until))
+(define (until-test expr) (cadr expr))
+(define (until-exp expr) (cddr expr))
+;; ==== QUESTION 3 ====
+
+;; ==== QUESTION 5 ====
+(define (proc-env? exp) (tagged-list? exp 'procedure-env))
+(define (proc-env-arg exp) (second exp))
+(define (curr-env? exp) (tagged-list? exp 'current-env))
+;; ==== QUESTION 5 ====
+
 (define (application? exp) (pair? exp))
 (define (operator app) (car app))
 (define (operands app) (cdr app))
@@ -109,7 +124,7 @@
 ;;
 
 (define (m-eval exp env)
-  ;(displayln exp) ; debug
+  (displayln exp) ; debug
   (cond ((self-evaluating? exp) exp)
         ((variable? exp) (lookup-variable-value exp env))
         ((quoted? exp) (text-of-quotation exp))
@@ -129,10 +144,12 @@
         ((and? exp) (eval-and (operands exp) env))
         ;; ==== QUESTION 2 ====
         ;; ==== QUESTION 3 ====
-        ((until? exp)
-         ;(printf "m-eval:branch until: ~s~n" (until->transformed exp))
-         (m-eval (until->transformed exp) env))
+        ((until? exp) (m-eval (until->transformed exp) env))
         ;; ==== QUESTION 3 ====
+        ;; ==== QUESTION 5 ====
+        ((proc-env? exp) (eval-proc-env exp env))
+        ((curr-env? exp) (eval-curr-env env))
+        ;; ==== QUESTION 5 ====
         ((application? exp)
          (m-apply (m-eval (operator exp) env)
                 (list-of-values (operands exp) env)))
@@ -207,19 +224,13 @@
                      (make-cond (rest-cond-clauses clauses)))))))
 
 ;; ==== QUESTION 3 ====
-(define (until? exp)
-  ;(printf "until?: (car expr) is ~s~n" (car exp))
-  ;(printf "until?: returning ~s~n" (tagged-list? exp 'until))
-  (tagged-list? exp 'until))
-(define (until-test expr) (cadr expr))
-(define (until-exp expr) (cddr expr))
-(define (add-loop until-exp loop)
-  (cond ((null? until-exp) (cons loop null))
-        (else (cons (car until-exp)
-                    (add-loop (cdr until-exp) loop)))))
-(define (make-until-begin until-exp loop)
-  (cons 'begin (add-loop until-exp loop)))
 (define (until->transformed expr)
+  (define (add-loop until-exp loop)
+    (cond ((null? until-exp) (cons loop null))
+          (else (cons (car until-exp)
+                      (add-loop (cdr until-exp) loop)))))
+  (define (make-until-begin until-exp loop)
+    (cons 'begin (add-loop until-exp loop)))
   (make-let '()
             (list (make-define '(loop)
                                (make-if (until-test expr)
@@ -227,6 +238,15 @@
                                         (make-until-begin (until-exp expr) '(loop))))
                   '(loop))))
 ;; ==== QUESTION 3 ====
+
+;; ==== QUESTION 5 ====
+(define (eval-proc-env expr env)
+  (box (proc-env (proc-env-arg expr) env)))
+(define (eval-curr-env env)
+  (box env))
+;; ==== QUESTION 5 ====
+
+
 
 (define input-prompt ";;; M-Eval input level ")
 (define output-prompt ";;; M-Eval value:")
@@ -369,6 +389,13 @@
               binding
               (find-in-environment var (enclosing-environment env)))))))
 
+;; ==== QUESTION 5 ====
+(define (proc-env proc-name env)
+  (procedure-environment
+   (lookup-variable-value proc-name
+                          env)))
+;; ==== QUESTION 5 ====
+
 ; name rule
 (define (lookup-variable-value var env)
   (let ((binding (find-in-environment var env)))
@@ -418,8 +445,6 @@
         (list '= =)
         (list 'display display)
         (list 'not not)
-        ; ... more primitives
-        
         ;; ==== QUESTION 1 ====
         (list '* *)
         (list '/ /)
@@ -430,7 +455,24 @@
         (list 'printf printf)
         (list 'length length)
         ;; ==== QUESTION 1 ====
+        ;; ==== QUESTION 5 ====
+        (list 'env-variables env-variables)
+        (list 'env-parent env-parent)
+        (list 'env-value env-value)
+        ;; ==== QUESTION 5 ====
         ))
+
+;; ==== QUESTION 5 ====
+(define (env-variables env-box)
+  (let ((env (unbox env-box)))
+    (frame-variables (environment-first-frame env))))
+(define (env-parent env-box)
+  (let ((env (unbox env-box)))
+    (box (enclosing-environment env))))
+(define (env-value var env-box)
+  (let ((env (unbox env-box)))
+    (lookup-variable-value var env)))
+;; ==== QUESTION 5 ====
 
 (define (primitive-procedure-names) (mmap car (primitive-procedures)))
 
