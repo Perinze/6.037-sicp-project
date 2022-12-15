@@ -124,7 +124,7 @@
 ;;
 
 (define (m-eval exp env)
-  (displayln exp) ; debug
+  ;(displayln exp) ; debug
   (cond ((self-evaluating? exp) exp)
         ((variable? exp) (lookup-variable-value exp env))
         ((quoted? exp) (text-of-quotation exp))
@@ -451,9 +451,21 @@
         (list 'list list)
         (list 'cadr cadr)
         (list 'cddr cddr)
+        (list 'caadr caadr)
+        (list 'caddr caddr)
+        (list 'cdadr cdadr)
+        (list 'cdddr cdddr)
+        (list 'cadddr cadddr)
+        (list 'cddddr cddddr)
         (list 'newline newline)
         (list 'printf printf)
         (list 'length length)
+        (list 'symbol? symbol?)
+        (list 'pair? pair?)
+        (list 'eq? eq?)
+        (list 'number? number?)
+        (list 'string? string?)
+        (list 'boolean? boolean?)
         ;; ==== QUESTION 1 ====
         ;; ==== QUESTION 5 ====
         (list 'env-variables env-variables)
