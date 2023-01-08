@@ -23,6 +23,7 @@
   (and (pair? exp) (eq? (car exp) tag)))
 
 (define (self-evaluating? exp)
+  (printf "~a is self-evaluating\n" exp)
   (cond ((number? exp) #t)
         ((string? exp) #t)
         ((boolean? exp) #t)
@@ -83,6 +84,10 @@
         (else (make-begin seq))))
 (define (make-begin exp) (cons 'begin exp))
 
+;; ==== QUESTION 2 ====
+(define (and? exp) (tagged-list? exp 'and))
+;; ==== QUESTION 2 ====
+
 (define (application? exp) (pair? exp))
 (define (operator app) (car app))
 (define (operands app) (cdr app))
@@ -99,6 +104,7 @@
 ;;
 
 (define (m-eval exp env)
+  (displayln exp) ; debug
   (cond ((self-evaluating? exp) exp)
         ((variable? exp) (lookup-variable-value exp env))
         ((quoted? exp) (text-of-quotation exp))
@@ -111,6 +117,12 @@
         ((cond? exp) (m-eval (cond->if exp) env))
         ((let? exp) (m-eval (let->application exp) env))
         ((time? exp) (time (m-eval (second exp) env)))
+        ;; ==== QUESTION 2 ====
+        ((and? exp) (eval-and (operands exp) env))
+        ;; ==== QUESTION 2 ====
+        ;; ==== QUESTION 3 ====
+        ((until? exp) (m-eval (until->transformed exp) env))
+        ;; ==== QUESTION 3 ====
         ((application? exp)
          (m-apply (m-eval (operator exp) env)
                 (list-of-values (operands exp) env)))
@@ -153,6 +165,15 @@
                     (m-eval (definition-value exp) env)
                     env))
 
+;; ==== QUESTION 2 ====
+(define (eval-and exp env)
+  (let ((result (m-eval (first-exp exp) env)))
+    (cond ((null? exp) #t)
+          ((last-exp? exp) result)
+          (result (eval-and (rest-exps exp) env))
+          (else #f))))
+;; ==== QUESTION 2 ====
+
 (define (let->application expr)
   (let ((names (let-bound-variables expr))
         (values (let-values expr))
@@ -169,6 +190,25 @@
             (make-if (car (first-cond-clause clauses))
                      (sequence->exp (cdr (first-cond-clause clauses)))
                      (make-cond (rest-cond-clauses clauses)))))))
+
+;; ==== QUESTION 3 ====
+(define (until? expr) (eq? (car expr) 'begin))
+(define (until-test expr) (cadr expr))
+(define (until-exp expr) (cddr expr))
+(define (add-loop until-exp loop)
+  (cond ((null? until-exp) (cons loop null))
+        (else (cons (car until-exp)
+                    (add-loop (cdr until-exp) loop)))))
+(define (make-until-begin until-exp loop)
+  (cons 'begin (add-loop until-exp loop)))
+(define (until->transformed expr)
+  (make-let '()
+            (list (make-define '(loop)
+                               (make-if (until-test expr)
+                                        #t
+                                        (make-until-begin (until-exp expr) '(loop))))
+          '(loop))))
+;; ==== QUESTION 3 ====
 
 (define input-prompt ";;; M-Eval input level ")
 (define output-prompt ";;; M-Eval value:")
@@ -302,7 +342,6 @@
               binding
               (find-in-environment var (enclosing-environment env)))))))
 
-
 ; name rule
 (define (lookup-variable-value var env)
   (let ((binding (find-in-environment var env)))
@@ -345,6 +384,17 @@
         (list 'display display)
         (list 'not not)
         ; ... more primitives
+        
+        ;; ==== QUESTION 1 ====
+        (list '* *)
+        (list '/ /)
+        (list 'list list)
+        (list 'cadr cadr)
+        (list 'cddr cddr)
+        (list 'newline newline)
+        (list 'printf printf)
+        (list 'length length)
+        ;; ==== QUESTION 1 ====
         ))
 
 (define (primitive-procedure-names) (mmap car (primitive-procedures)))
