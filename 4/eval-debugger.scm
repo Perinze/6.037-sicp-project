@@ -104,7 +104,7 @@
 (define sub-problem-env caddr)
 (define sub-problem-cont cadddr)
 
-(define *the-history* '())
+(define *the-history* (make-parameter '()))
 (define (history-empty? history)
   (null? history))
 (define (extend-history sub-problem history)
@@ -123,9 +123,9 @@
 (define (m-eval exp env)
   (call/cc
    (lambda (k)
-     (parameterize ((*the-history* (extend-history
-                                 (make-sub-problem exp env k)
-                                 *the-history*)))
+     (parameterize ([*the-history* (extend-history
+                                    (make-sub-problem exp env k)
+                                    (*the-history*))])
        (cond ((self-evaluating? exp) exp)
              ((variable? exp) (lookup-variable-value exp env))
              ((quoted? exp) (text-of-quotation exp))
@@ -205,11 +205,11 @@
                  (number->string debug-level)
                  ")\n"
                  ";;; Current expression: "
-                 (if (history-empty? *the-history*)
+                 (if (history-empty? (*the-history*))
                      "<none>"
                      (let ((o (open-output-string)))
                        (display (sub-problem-exp
-                                 (top-sub-problem *the-history*))
+                                 (top-sub-problem (*the-history*)))
                                 o)
                        (get-output-string o)))
                  "\n"
@@ -245,7 +245,9 @@
 
 (define (start-debugger)
   ;; Question 1
-  (error "start-debugger not yet implemented"))
+  (set! debug-level (add1 debug-level))
+  (debugger-loop (sub-problem-env (top-sub-problem (*the-history*))))
+  (set! debug-level (sub1 debug-level)))
 
 (define (prompt-for-input string)
   (newline) (newline) (display string) (newline))
