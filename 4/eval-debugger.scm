@@ -246,7 +246,10 @@
 (define (start-debugger)
   ;; Question 1
   (set! debug-level (add1 debug-level))
-  (debugger-loop (sub-problem-env (top-sub-problem (*the-history*))))
+  (debugger-loop (make-debugger-environment
+                  (sub-problem-env
+                   (top-sub-problem
+                    (*the-history*)))))
   (set! debug-level (sub1 debug-level)))
 
 (define (prompt-for-input string)
@@ -385,9 +388,27 @@
        (map wrap-primitive-proc
             (map cadr (primitive-procedures)))))
 
+(define (examine-env)
+  (define (display-binding binding)
+    (printf "~s ~s\n"
+            (binding-variable binding)
+            (binding-value binding)))
+  (define (display-frame frame)
+    (displayln "\nframe")
+    (for-each display-binding
+              (cdr frame)))
+  (define (display-env env)
+    (if (not (eq? env the-empty-environment))
+        (begin (display-frame (first-frame env))
+               (display-env (enclosing-environment env)))))
+  (display-env (sub-problem-env (top-sub-problem (*the-history*)))))
+
+
+
 (define (debugger-procedures)
   (list (list 'help debugger-procedure-names)
-        (list 'racket-version version)))
+        (list 'racket-version version)
+        (list 'examine-env examine-env)))
 
 (define (debugger-procedure-names) (map car (debugger-procedures)))
 
@@ -415,8 +436,12 @@
 
 (define (make-debugger-environment base)
   ;; Question 2
-  the-empty-environment)
+  (extend-environment (debugger-procedure-names)
+                      (debugger-procedure-objects)
+                      base))
 
 (define (refresh-global-environment)
   (set! the-global-environment (setup-global-environment))
   'done)
+
+(driver-loop)
