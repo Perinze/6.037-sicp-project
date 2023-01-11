@@ -403,12 +403,24 @@
                (display-env (enclosing-environment env)))))
   (display-env (sub-problem-env (top-sub-problem (*the-history*)))))
 
+(define (backtrace)
+  (define (iter-sub-problems history depth)
+    (if (not (history-empty? history))
+        (begin (printf "Sub-problem ~s: ~s\n"
+                       depth
+                       (sub-problem-exp (top-sub-problem history)))
+               (iter-sub-problems (previous-sub-problems history)
+                                  (add1 depth)))))
+  (displayln "Backtrace:")
+  (iter-sub-problems (*the-history*) 0))
+
 
 
 (define (debugger-procedures)
   (list (list 'help debugger-procedure-names)
         (list 'racket-version version)
-        (list 'examine-env examine-env)))
+        (list 'examine-env examine-env)
+        (list 'backtrace backtrace)))
 
 (define (debugger-procedure-names) (map car (debugger-procedures)))
 
