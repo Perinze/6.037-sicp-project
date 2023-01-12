@@ -199,10 +199,11 @@
 (define (normal-input-prompt) ";;; M-Eval input:")
 (define (normal-output-prompt) ";;; M-Eval value:")
 
-(define debug-level 0)
+;(define debug-level 0)
+(define debug-level (make-parameter 0))
 (define (debug-input-prompt)
   (string-append ";;; M-Eval Debugger (level "
-                 (number->string debug-level)
+                 (number->string (debug-level))
                  ")\n"
                  ";;; Current expression: "
                  (if (history-empty? (*the-history*))
@@ -216,7 +217,7 @@
                  ";;; Input:"))
 (define (debug-output-prompt)
   (string-append ";;; M-Eval Debugger (level "
-                 (number->string debug-level)
+                 (number->string (debug-level))
                  ") value:"))
 
 (define (make-repl in-prompt-proc out-prompt-proc)
@@ -245,12 +246,11 @@
 
 (define (start-debugger)
   ;; Question 1
-  (set! debug-level (add1 debug-level))
-  (debugger-loop (make-debugger-environment
-                  (sub-problem-env
-                   (top-sub-problem
-                    (*the-history*)))))
-  (set! debug-level (sub1 debug-level)))
+  (parameterize ([debug-level (add1 (debug-level))])
+    (debugger-loop (make-debugger-environment
+                    (sub-problem-env
+                     (top-sub-problem
+                      (*the-history*)))))))
 
 (define (prompt-for-input string)
   (newline) (newline) (display string) (newline))
@@ -414,13 +414,19 @@
   (displayln "Backtrace:")
   (iter-sub-problems (*the-history*) 0))
 
+(define (return sub-problem-index value)
+  ((sub-problem-cont (sub-problem-ref (*the-history*)
+                                      sub-problem-index))
+   value))
+
 
 
 (define (debugger-procedures)
   (list (list 'help debugger-procedure-names)
         (list 'racket-version version)
         (list 'examine-env examine-env)
-        (list 'backtrace backtrace)))
+        (list 'backtrace backtrace)
+        (list 'return return)))
 
 (define (debugger-procedure-names) (map car (debugger-procedures)))
 
