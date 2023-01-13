@@ -95,6 +95,19 @@
 (define or-exprs cdr)
 (define (make-or exprs) (cons 'or exprs))
 
+(define (break? exp) (tagged-list? exp 'break))
+(define (break-body exp) (cons 'begin (cdr exp)))
+(define (make-break exp) (cons 'break exp))
+
+(define break-cont (make-parameter '()))
+(define break-cont-empty? null?)
+(define (extend-break-cont cont history)
+  (cons cont history))
+(define (top-break-cont history)
+  (car history))
+(define (previous-break-conts history)
+  (cdr history))
+
 ;; sub-problems and the history
 
 (define (make-sub-problem exp env cont)
@@ -137,6 +150,7 @@
              ((begin? exp) (eval-sequence (begin-actions exp) env))
              ((cond? exp) (m-eval (cond->if exp) env))
              ((let? exp) (m-eval (let->application exp) env))
+             ((break? exp) (eval-break exp env))
              ((application? exp)
               (m-apply (m-eval (operator exp) env)
                        (list-of-values (operands exp) env)))
@@ -178,6 +192,14 @@
   (define-variable! (definition-variable exp)
                     (m-eval (definition-value exp) env)
                     env))
+
+(define (eval-break exp env)
+  (call/cc
+   (lambda (cont)
+     (parameterize ([break-cont (extend-break-cont cont
+                                                   (break-cont))])
+       (start-debugger))))
+  (m-eval (break-body exp) env))
 
 (define (let->application expr)
   (let ((names (let-bound-variables expr))
@@ -419,6 +441,9 @@
                                       sub-problem-index))
    value))
 
+(define (continue)
+  ((top-break-cont (break-cont)) (void)))
+
 
 
 (define (debugger-procedures)
@@ -426,7 +451,8 @@
         (list 'racket-version version)
         (list 'examine-env examine-env)
         (list 'backtrace backtrace)
-        (list 'return return)))
+        (list 'return return)
+        (list 'continue continue)))
 
 (define (debugger-procedure-names) (map car (debugger-procedures)))
 
