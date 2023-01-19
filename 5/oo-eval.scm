@@ -597,7 +597,14 @@
 		       (append (map car (read-slot self ':methods))
 			       (if (read-slot self ':parent-class)
 				   (invoke (read-slot self ':parent-class) 'GET-METHODS)
-				   '())))))))))
+				   '()))))
+       (GET-TYPES   ,(lambda (self)
+                       (let ((parent (read-slot self ':parent-class)))
+                         (cons (read-slot self ':name)
+                               (if parent
+                                   (invoke parent 'GET-TYPES)
+                                   '())))))
+       )))))
 
 
 
@@ -648,8 +655,7 @@
            (slots-env
             (extend-environment (make-frame-from-bindings
                                  (map make-binding-shared
-                                      (filter (lambda (p) (not (tagged-list? p ':class)))
-                                              (instance-state instance))))
+                                      (instance-state instance)))
                                 proc-env))
 	       (args-env
 	        (extend-environment (make-frame (procedure-parameters proc)
