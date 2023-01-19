@@ -5,6 +5,15 @@
 ;; PROJECT 4: Implementation of an OO System
 ;;            (a.k.a. "The Adventure Game")
 
+(define (log index exp)
+  (printf "log:~s:~s\n" index exp)
+  exp)
+(define (log-with f exp)
+  (f exp)
+  exp)
+(define (display-list l)
+  (for-each (lambda (item) (log item))
+            l))
 
 ; Racket-specific setup
 (print-as-expression #f)
@@ -18,6 +27,12 @@
 (define (fifth x) (car (cddddr x)))
 (define rest cdr)
 
+(define (filter pred lst)
+  (if (null? lst)
+      '()
+      (if (pred (car lst))
+          (cons (car lst) (filter pred (cdr lst)))
+          (filter pred (cdr lst)))))
 
 ;; ---- Scheme-like evaluator in scheme -----------------------------------
 (define (tagged-list? exp tag)
@@ -124,12 +139,14 @@
         ((make-class? exp) (eval-make-class exp env))
         ((application? exp)
          (oo-apply (oo-eval (operator exp) env)
-                (list-of-values (operands exp) env)))
+                   (list-of-values (operands exp) env)))
         (else (oo-error "Unknown expression type -- EVAL" exp))))
 
 (define (oo-apply procedure arguments)
   (cond ((primitive-procedure? procedure)
          (apply-primitive-procedure procedure arguments))
+        ((instance? procedure)
+         (oo-apply-instance procedure arguments))
         ((compound-procedure? procedure)
          (eval-sequence
           (procedure-body procedure)
@@ -562,17 +579,17 @@
        ;; Returns "method-info" see below
        (FIND-METHOD ,(lambda (self methodname)
 		      (let ((my-method (assq methodname (read-slot self ':methods))))
-			(if my-method
-			    (make-method-info methodname (second my-method) (read-slot self ':parent-class))
-			    (if (read-slot self ':parent-class)
-				 (invoke (read-slot self ':parent-class) 'FIND-METHOD methodname)
-				 #f)))))
+                (if my-method
+                    (make-method-info methodname (second my-method) (read-slot self ':parent-class))
+                    (if (read-slot self ':parent-class)
+                        (invoke (read-slot self ':parent-class) 'FIND-METHOD methodname)
+                        #f)))))
 
        (GET-SLOTS ,(lambda (self)
 		     (append (read-slot self ':slots)
 			     (if (read-slot self ':parent-class)
-				 (invoke (read-slot self ':parent-class) 'GET-SLOTS)
-				 '()))))
+                     (invoke (read-slot self ':parent-class) 'GET-SLOTS)
+                     '()))))
 
        ;; These are not needed to bootstrap, but enable some introspection
        (GET-CLASS   ,(lambda (self) (read-slot self ':class)))
@@ -590,10 +607,6 @@
 
 ;; oo-eval should call this to handle the make-class special form
 (define (eval-make-class exp env)  ;; PROBLEM 2
-  ;(displayln (make-class-methods exp))
-  ;(for-each (lambda (method)
-  ;            (displayln (oo-eval (method-lambda method) env)))
-  ;          (make-class-methods exp))
   (create-class (oo-eval (make-class-name exp) env)
                 (oo-eval (make-class-parent exp) env)
                 (make-class-slots exp)
@@ -609,7 +622,7 @@
       (oo-error "Applications of instances must include a method name as the first argument. Instance:" instance)
       (let ((methodname (car arguments))
             (methodargs (cdr arguments)))
-        'BRRRRRRRRRAAAAAINS?)))
+        (method-call instance methodname (instance-class instance) methodargs))))
 
 ;; Call a method on an object (variable arguments form)
 (define (invoke instance method . args)
@@ -619,28 +632,33 @@
 (define (method-call instance method current-class args)
   (let ((info (find-class-method-info method current-class)))
     (if info
-	(apply-method instance info args)
-	(oo-error "No such method" method))))
+        (apply-method instance info args)
+        (oo-error "No such method" method))))
 
 
 ;; Apply a method procedure. Normally an oo-eval procedure, although can also be a normal underlying scheme procedure
 ;; in the case of the original default-metaclass definition
 (define (apply-method instance methodinfo args)
   (let ((proc (method-info-proc methodinfo))
-	(parent-class (method-info-parent-class methodinfo)))
+        (parent-class (method-info-parent-class methodinfo)))
     (if (procedure? proc)          ;; Detect procedure from underlying scheme
 	(apply proc instance args) ;; Kludge to make the default-metaclass' methods work and bootstrap us.
 	(let* ((proc-env
 	        (procedure-environment proc)) ;; Normal case, method defined by user through oo-eval with make-class
-
+           (slots-env
+            (extend-environment (make-frame-from-bindings
+                                 (map make-binding-shared
+                                      (filter (lambda (p) (not (tagged-list? p ':class)))
+                                              (instance-state instance))))
+                                proc-env))
 	       (args-env
 	        (extend-environment (make-frame (procedure-parameters proc)
-                                                args)
-                                    proc-env))
+                                            args)
+                                slots-env))
 	       (selfsuper-env
-                (extend-environment (make-frame '(self super)
-                                                (list instance (make-super instance parent-class)))
-                                    args-env)))
+            (extend-environment (make-frame '(self super)
+                                            (list instance (make-super instance parent-class)))
+                                args-env)))
 	  (eval-sequence
 	   (procedure-body proc)
 	   selfsuper-env)))))
@@ -658,11 +676,11 @@
 (define (find-class-method-info methodname class)
   (if (class? class)
       (let ((get-method-alist-entry (assq 'FIND-METHOD (read-slot (instance-class class) ':methods))))
-	(if get-method-alist-entry
-	    (apply-method class
-			  (make-method-info 'FIND-METHOD (second get-method-alist-entry) (read-slot (instance-class class) ':parent-class))
-			  (list methodname))
-	    (oo-error "Metaclass does not define FIND-METHOD method; impossible to call methods")))
+        (if get-method-alist-entry
+            (apply-method class
+                          (make-method-info 'FIND-METHOD (second get-method-alist-entry) (read-slot (instance-class class) ':parent-class))
+                          (list methodname))
+            (oo-error "Metaclass does not define FIND-METHOD method; impossible to call methods")))
       #f))
 
 ;; FIND-METHOD is supposed to return a "method-info" object
