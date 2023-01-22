@@ -123,6 +123,8 @@
 ;;
 
 (define (oo-eval exp env)
+  (pretty-display exp)
+  (displayln "")
   (cond ((self-evaluating? exp) exp)
         ((variable? exp) (lookup-variable-value exp env))
         ((quoted? exp) (text-of-quotation exp))
@@ -145,8 +147,9 @@
 (define (oo-apply procedure arguments)
   (cond ((primitive-procedure? procedure)
          (apply-primitive-procedure procedure arguments))
-        ((instance? procedure)
-         (oo-apply-instance procedure arguments))
+        ;((instance? procedure)
+        ((instance-uid? procedure) ; problem 6
+         (oo-apply-instance (lookup-instance procedure) arguments))
         ((compound-procedure? procedure)
          (eval-sequence
           (procedure-body procedure)
@@ -519,6 +522,9 @@
 
 ; Given an object instance and slot name, find the slot's current value
 (define (read-slot instance varname)
+  (displayln "read-slot::instance")
+  (pretty-display instance)
+  (displayln "")
   (let ((result (assq varname (instance-state instance))))
     (if result
         (cadr result)
@@ -547,7 +553,8 @@
         (method-call instance 'CONSTRUCTOR class args))
 
     ; return the constructed instance
-    instance))
+    ;instance))
+    (hide-instance (make-label instance) instance)))
 
 ;; class abstraction: classes are instances of the default-metaclass
 (define (class? c) (instance? c))
