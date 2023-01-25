@@ -34,6 +34,11 @@
           (cons (car lst) (filter pred (cdr lst)))
           (filter pred (cdr lst)))))
 
+(define (next-count)
+  (let ((x 0))
+    (set! x (add1 x))
+    x))
+
 ;; ---- Scheme-like evaluator in scheme -----------------------------------
 (define (tagged-list? exp tag)
   (and (pair? exp) (eq? (car exp) tag)))
@@ -123,8 +128,6 @@
 ;;
 
 (define (oo-eval exp env)
-  (pretty-display exp)
-  (displayln "")
   (cond ((self-evaluating? exp) exp)
         ((variable? exp) (lookup-variable-value exp env))
         ((quoted? exp) (text-of-quotation exp))
@@ -147,9 +150,8 @@
 (define (oo-apply procedure arguments)
   (cond ((primitive-procedure? procedure)
          (apply-primitive-procedure procedure arguments))
-        ;((instance? procedure)
-        ((instance-uid? procedure) ; problem 6
-         (oo-apply-instance (lookup-instance procedure) arguments))
+        ((instance? procedure)
+         (oo-apply-instance procedure arguments))
         ((compound-procedure? procedure)
          (eval-sequence
           (procedure-body procedure)
@@ -512,19 +514,19 @@
 ; Note that the slots include :class, the instance's class
 
 (define (instance? obj)
-  (tagged-list? obj 'instance))
+;  (tagged-list? obj 'instance))
+  (and (instance-uid? obj)
+       (tagged-list? (lookup-instance obj)
+                     'instance)))
 
 (define (instance-class inst)
   (read-slot inst ':class))
 
 (define (instance-state inst)
-  (second inst))
+  (second (lookup-instance inst)))
 
 ; Given an object instance and slot name, find the slot's current value
 (define (read-slot instance varname)
-  (displayln "read-slot::instance")
-  (pretty-display instance)
-  (displayln "")
   (let ((result (assq varname (instance-state instance))))
     (if result
         (cadr result)
@@ -542,19 +544,20 @@
 ; All slots other than :class start out with the value 'uninitialized
 ; Need to call the constructor if there is one
 (define (make-instance class . args)
-  (let ((instance
-         (list 'instance
-               (cons (list ':class class)
-                     (map
-                      (lambda (x) (list x 'uninitialized))
-                      (invoke class 'GET-SLOTS))))))
+  (let ((uid
+         (hide-instance
+          (next-count)
+          (list 'instance
+                (cons (list ':class class)
+                      (map
+                       (lambda (x) (list x 'uninitialized))
+                       (invoke class 'GET-SLOTS)))))))
 
     (if (class-has-method? class 'CONSTRUCTOR)
-        (method-call instance 'CONSTRUCTOR class args))
+        (method-call uid 'CONSTRUCTOR class args))
 
     ; return the constructed instance
-    ;instance))
-    (hide-instance (make-label instance) instance)))
+    uid))
 
 ;; class abstraction: classes are instances of the default-metaclass
 (define (class? c) (instance? c))
@@ -615,8 +618,10 @@
 
 
 
+(set! default-metaclass (hide-instance (next-count) default-metaclass))
+
 ;; The default-metaclass's class? Why, the default-metaclass, of course.
-(set-car! (cdaadr default-metaclass) default-metaclass)
+(set-car! (cdaadr (lookup-instance default-metaclass)) default-metaclass)
 
 
 ;; oo-eval should call this to handle the make-class special form
